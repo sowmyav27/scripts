@@ -1,0 +1,50 @@
+## https://docs.docker.com/install/windows/docker-ee/
+
+param (
+    [parameter(Mandatory = $false)] [string]$Version = '18.09',
+    [parameter(Mandatory = $false)] [switch]$UpdateProvider
+)
+
+Write-Host 'Install NuGet package provider ...'
+Find-PackageProvider -Name NuGet -ForceBootstrap -ErrorAction ignore
+
+Write-Host 'Install DockerMsftProvider module ...'
+Install-Module -Name DockerMsftProvider -Repository PSGallery -Force -Verbose
+if (-not $?) {
+  throw 'Cannot install DockerMsftProvider module.'
+}
+
+if ($UpdateProvider) {
+  Write-Host 'Update DockerMsftProvider module ...'
+  Update-Module DockerMsftProvider -Verbose
+  if (-not $?) {
+    throw 'Cannot install DockerMsftProvider module.'
+  }
+}
+
+Write-Host ('Install Dokcer {0} package ...' -f $Version)
+Install-Package -Name Docker -ProviderName DockerMsftProvider -RequiredVersion $Version -Update -Force -Verbose
+if (-not $?) {
+  throw ('Cannot install Dokcer {0} package ...' -f $Version)
+}
+
+$svcDocker = Get-Service -Name 'Docker' -ErrorAction Ignore
+if (-not $svcDocker) {
+  throw 'Unable to find the Docker service.'
+} elseif ($svcDocker.Status -ne 'Running') {
+  Set-Service -Name 'Docker' -StartupType Automatic
+  if (-not $?) {
+    throw ('Cannot install Dokcer {0} package ...' -f $Version)
+  }
+}
+
+if ((Install-WindowsFeature Containers).RestartNeeded) {
+  Write-Host 'Restart computer after 10 seconds ...'
+  Start-Sleep -Seconds 10
+  Restart-Computer
+} else {
+  Start-Service -Name 'Docker' -Verbose
+  if (-not $?) {
+    throw ('Cannot install Dokcer {0} package ...' -f $Version)
+  }
+}
